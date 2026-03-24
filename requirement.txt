@@ -1,12 +1,3 @@
-flask
-gunicorn
-langchain
-langchain-core
-langchain-community
-mistralai
-python-dotenv
 streamlit
-python-dotenv
 langchain
-langchain-core
 langchain-mistralai
