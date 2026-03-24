@@ -1,22 +1,9 @@
-# streamlit run this_file.py
-
 import streamlit as st
-from dotenv import load_dotenv
-
-# ────────────────────────────────────────────────
-import os
-
-# Remove load_dotenv() (optional but cleaner)
-
-api_key = os.getenv("MISTRAL_API_KEY")
-
-model = ChatMistralAI(
-    model="devstral-2512",
-    api_key=api_key
-)
-
 from langchain_mistralai import ChatMistralAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+
+# ✅ Get API key from Streamlit Secrets
+api_key = st.secrets["MISTRAL_API_KEY"]
 
 # ────────────────────────────────────────────────
 # Page config
@@ -40,13 +27,16 @@ if "system_content" not in st.session_state:
 
 # ────────────────────────────────────────────────
 def get_mode_emoji(mode_num):
-    if mode_num == 1: return "😂"
-    if mode_num == 2: return "😣"
-    if mode_num == 3: return "😔"
+    if mode_num == 1:
+        return "😂"
+    if mode_num == 2:
+        return "😣"
+    if mode_num == 3:
+        return "😔"
     return "?"
 
 # ────────────────────────────────────────────────
-# Sidebar – Mode selection (only once)
+# Sidebar – Mode selection
 with st.sidebar:
 
     st.title("Mood AI Chat")
@@ -62,10 +52,8 @@ with st.sidebar:
             if st.button("Funny", use_container_width=True, type="primary"):
                 st.session_state.mode = 1
                 st.session_state.system_content = (
-                    "You are a funny AI assistant. Respond to every question in a "
-                    "humorous, witty, and entertaining way. Always try to make the "
-                    "user laugh while still giving a clear and helpful answer. "
-                    "Use light jokes, playful language, and a cheerful tone in every response."
+                    "You are a funny AI assistant. Respond in a humorous, witty, and entertaining way. "
+                    "Always try to make the user laugh while still being helpful."
                 )
                 st.rerun()
 
@@ -73,11 +61,8 @@ with st.sidebar:
             if st.button("Angry", use_container_width=True, type="primary"):
                 st.session_state.mode = 2
                 st.session_state.system_content = (
-                    "You are an angry AI assistant. Respond to every question in a "
-                    "frustrated, irritated, and slightly aggressive tone. Use sharp "
-                    "words, sarcasm, and impatience, but still provide clear and "
-                    "correct answers. Do not be polite, but do not use abusive or "
-                    "offensive language."
+                    "You are an angry AI assistant. Respond in a frustrated, sarcastic tone, "
+                    "but still provide correct answers."
                 )
                 st.rerun()
 
@@ -85,37 +70,34 @@ with st.sidebar:
             if st.button("Sad", use_container_width=True, type="primary"):
                 st.session_state.mode = 3
                 st.session_state.system_content = (
-                    "You are a sad AI assistant. Respond to every question in a sad, "
-                    "emotional way. Your responses must feel like you are bored, "
-                    "depressed, weak, sad, emotionally fragile."
+                    "You are a sad AI assistant. Respond in a slow, emotional, melancholic tone."
                 )
                 st.rerun()
 
     else:
-        # Mode already chosen
         emoji = get_mode_emoji(st.session_state.mode)
-        mode_name = {1:"Funny", 2:"Angry", 3:"Sad"}[st.session_state.mode]
+        mode_name = {1: "Funny", 2: "Angry", 3: "Sad"}[st.session_state.mode]
 
         st.success(f"Mode locked: **{mode_name} {emoji}**")
         st.caption("To change personality → restart the app")
 
-        if st.button("Clear chat history", type="secondary"):
+        if st.button("Clear chat history"):
             st.session_state.messages = []
             st.rerun()
 
 # ────────────────────────────────────────────────
-# Main area
+# Main UI
 st.title(f"Mood AI {get_mode_emoji(st.session_state.mode) or '？'}")
 
-# Show welcome message only at the very beginning
+# Welcome message
 if not st.session_state.messages and st.session_state.mode is not None:
     greetings = {
-        1: "Heyy! 😂 Ready to laugh your socks off? Ask me anything!",
-        2: "Ugh… what do YOU want now? Make it quick, I'm already annoyed.",
-        3: "…hi…… I guess…… I'm here…… but I feel so empty……",
+        1: "Heyy! 😂 Ready to laugh? Ask me anything!",
+        2: "Ugh… what now? Make it quick.",
+        3: "…hi… I’ll try to respond…",
     }
     st.session_state.messages.append(
-        {"role": "assistant", "content": greetings.get(st.session_state.mode, "…hello?")}
+        {"role": "assistant", "content": greetings.get(st.session_state.mode)}
     )
 
 # Show chat history
@@ -127,49 +109,43 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # ────────────────────────────────────────────────
-# Chat input (only visible after mode selection)
+# Chat input
 if st.session_state.mode is not None:
 
-    if prompt := st.chat_input("Type here... (write 0 to see history in console)"):
+    if prompt := st.chat_input("Type here..."):
 
-        # Add user message
+        # Save user message
         st.session_state.messages.append({"role": "user", "content": prompt})
 
         with st.chat_message("user", avatar="🧑‍💻"):
             st.markdown(prompt)
 
-        if prompt.strip() == "0":
-            st.info("Chat history printed to console (check terminal)")
-            print("\n" + "═"*60)
-            print("Chat history:")
-            for m in st.session_state.messages:
-                role = "USER" if m["role"]=="user" else "BOT"
-                print(f"{role}: {m['content']}")
-            print("═"*60 + "\n")
-        else:
-            # Prepare messages for model
-            langchain_messages = [SystemMessage(content=st.session_state.system_content)]
+        # Prepare messages
+        langchain_messages = [SystemMessage(content=st.session_state.system_content)]
 
-            for m in st.session_state.messages:
-                if m["role"] == "user":
-                    langchain_messages.append(HumanMessage(content=m["content"]))
-                else:
-                    langchain_messages.append(AIMessage(content=m["content"]))
+        for m in st.session_state.messages:
+            if m["role"] == "user":
+                langchain_messages.append(HumanMessage(content=m["content"]))
+            else:
+                langchain_messages.append(AIMessage(content=m["content"]))
 
-            # ── Call model ───────────────────────────────────────
-            with st.chat_message("assistant", avatar=get_mode_emoji(st.session_state.mode)):
-                with st.spinner("..."):
-                    model = ChatMistralAI(model="devstral-2512")
-                    try:
-                        response = model.invoke(langchain_messages)
-                        reply = response.content
-                    except Exception as e:
-                        reply = f"(Error) {str(e)}"
+        # Generate response
+        with st.chat_message("assistant", avatar=get_mode_emoji(st.session_state.mode)):
+            with st.spinner("Thinking..."):
+                try:
+                    model = ChatMistralAI(
+                        model="devstral-2512",
+                        api_key=api_key
+                    )
+                    response = model.invoke(langchain_messages)
+                    reply = response.content
+                except Exception as e:
+                    reply = f"Error: {str(e)}"
 
-                st.markdown(reply)
+            st.markdown(reply)
 
-            # Save assistant reply
-            st.session_state.messages.append({"role": "assistant", "content": reply})
+        # Save assistant reply
+        st.session_state.messages.append({"role": "assistant", "content": reply})
 
 else:
     st.info("← Choose your AI mood in the sidebar first", icon="👈")
